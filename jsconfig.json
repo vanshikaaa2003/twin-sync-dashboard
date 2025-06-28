@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    /* ------------------------------------------------------------------
+       BASICS
+    ------------------------------------------------------------------ */
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+
+    /* ------------------------------------------------------------------
+       React / JSX
+    ------------------------------------------------------------------ */
+    "jsx": "react-jsx",
+    "allowJs": true,          // allow plain .js/.jsx alongside .ts/.tsx
+    "checkJs": false,         // no type-check on plain .js files
+    "noEmit": true,           // Vite handles output
+
+    /* ------------------------------------------------------------------
+       Path alias (needed for shadcn/ui)
+       '@/components/Button'  →  'src/components/Button'
+    ------------------------------------------------------------------ */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+
+    /* ------------------------------------------------------------------
+       Optional strictness — set to true later if you adopt TypeScript
+    ------------------------------------------------------------------ */
+    "strict": false,
+
+    /* Enable JSON imports (optional) */
+    "resolveJsonModule": true,
+
+    /* Isolate each file (good for tsx+vite) */
+    "isolatedModules": true
+  },
+
+  /* --------------------------------------------------------------------
+     Tell TS exactly where your code lives  →  removes “No inputs” warning
+  -------------------------------------------------------------------- */
+  "include": ["src/**/*"],
+
+  /* Ignore node_modules, builds, tests, etc. */
+  "exclude": ["node_modules", "dist", "build"]
+}
