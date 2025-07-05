@@ -1,6 +1,7 @@
 // ────────────────────────────────────────────────────────────────
 // telemetry.js  – shared WebSocket helper for live twin telemetry
 // ────────────────────────────────────────────────────────────────
+const WS_URL = import.meta.env.VITE_MESH_WS;
 let socket = null;
 
 // twinId  →  callback(payload)
@@ -16,7 +17,7 @@ const ALL_TOPICS = ["temperature", "vibration", "altitude"];
 export function connectToEventMesh() {
   if (socket) return; // already connected
 
-  socket = new WebSocket("ws://localhost:5000");
+  socket = new WebSocket(WS_URL);
 
   socket.addEventListener("open", () => {
     console.log("🟢 Connected to Event Mesh");
