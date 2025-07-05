@@ -1,36 +1,40 @@
 // src/App.jsx
 import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthProvider";
+
 import LoginModal from "./components/LoginModal";
-import AddTwinModal from "./components/AddTwinModal";      // 👈 NEW
+import AddTwinModal from "./components/AddTwinModal";
+import FilterBar from "./components/FilterBar";
+import TwinTable from "./components/TwinTable";
+import SkeletonRow from "./components/SkeletonRow";     // make sure file exists
+import ToastProvider from "./ToastProvider";
+
+import { TooltipProvider } from "@radix-ui/react-tooltip";
 
 import { fetchTwins } from "./api/twins";
 import { connectToEventMesh, subscribeToTwin } from "./telemetry";
 
-import FilterBar from "./components/FilterBar";
-import TwinTable from "./components/TwinTable";
-import ToastProvider from "./ToastProvider";
-import { TooltipProvider } from "@radix-ui/react-tooltip";
-
 // ───────────────────────────────────────────────────────────
-//  Inner dashboard – rendered only after AuthProvider mounts
+//  Inner dashboard
 // ───────────────────────────────────────────────────────────
 function Dashboard() {
-  const { user } = useAuth();        // Supabase user (null if logged‑out)
+  const { user } = useAuth();
 
-  // ---------- state ----------
-  const [twins, setTwins]   = useState([]);
-  const [series, setSeries] = useState({});
-  const [filter, setFilter] = useState("");
+  const [twins, setTwins]       = useState([]);
+  const [series, setSeries]     = useState({});
+  const [loading, setLoading]   = useState(true);
+  const [filter, setFilter]     = useState("");
   const [sortNewest, setSortNewest] = useState(true);
 
-  // ---------- fetch twins + WS ----------
+  // ---------- fetch twins + telemetry ----------
   useEffect(() => {
-    if (!user) return;               // wait until logged‑in
+    if (!user) return;
 
+    setLoading(true);
     fetchTwins()
       .then((data) => {
         setTwins(data);
+        setLoading(false);
 
         data.forEach((twin) =>
           subscribeToTwin(twin.id, (payload) =>
@@ -47,19 +51,25 @@ function Dashboard() {
           )
         );
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
 
     connectToEventMesh();
   }, [user]);
 
-  // ---------- 10‑second polling ----------
+  // ---------- polling ----------
   useEffect(() => {
     if (!user) return;
-    const t = setInterval(
-      () => fetchTwins().then(setTwins).catch(console.error),
+    const id = setInterval(
+      () =>
+        fetchTwins()
+          .then(setTwins)
+          .catch(console.error),
       10_000
     );
-    return () => clearInterval(t);
+    return () => clearInterval(id);
   }, [user]);
 
   // ---------- filter & sort ----------
@@ -75,15 +85,13 @@ function Dashboard() {
   return (
     <TooltipProvider>
       <div className="p-6 space-y-6 max-w-6xl mx-auto">
-        {/* top bar */}
+        {/* Header */}
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">🧠 TwinSync Dashboard</h1>
-
           <div className="flex gap-4">
-            {/* ➕ AddTwin visible only when logged‑in */}
             {user && (
               <AddTwinModal
-                onCreated={(twin) => setTwins((prev) => [twin, ...prev])}
+                onCreated={(twin) => setTwins((p) => [twin, ...p])}
               />
             )}
             <LoginModal />
@@ -91,21 +99,26 @@ function Dashboard() {
         </div>
 
         {user ? (
-          <>
-            <FilterBar
-              capabilities={twins.flatMap((t) => t.capabilities)}
-              selected={filter}
-              onChange={setFilter}
-              sortNew={sortNewest}
-              onToggleSort={() => setSortNewest((s) => !s)}
-            />
+          loading ? (
+            /* shimmer while loading */
+            <SkeletonRow rows={4} />
+          ) : (
+            <>
+              <FilterBar
+                capabilities={twins.flatMap((t) => t.capabilities)}
+                selected={filter}
+                onChange={setFilter}
+                sortNew={sortNewest}
+                onToggleSort={() => setSortNewest((s) => !s)}
+              />
 
-            <TwinTable
-              twins={filteredTwins}
-              series={series}
-              setTwins={setTwins}
-            />
-          </>
+              <TwinTable
+                twins={filteredTwins}
+                series={series}
+                setTwins={setTwins}
+              />
+            </>
+          )
         ) : (
           <p className="text-lg text-gray-600 pt-12">
             Please log in to view or register twins.
@@ -119,7 +132,7 @@ function Dashboard() {
 }
 
 // ───────────────────────────────────────────────────────────
-//  Root component wraps everything in AuthProvider
+//  Root component
 // ───────────────────────────────────────────────────────────
 export default function App() {
   return (
