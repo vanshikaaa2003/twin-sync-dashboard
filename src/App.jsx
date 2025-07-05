@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthProvider";
 import LoginModal from "./components/LoginModal";
+import AddTwinModal from "./components/AddTwinModal";      // 👈 NEW
 
 import { fetchTwins } from "./api/twins";
 import { connectToEventMesh, subscribeToTwin } from "./telemetry";
@@ -15,29 +16,32 @@ import { TooltipProvider } from "@radix-ui/react-tooltip";
 //  Inner dashboard – rendered only after AuthProvider mounts
 // ───────────────────────────────────────────────────────────
 function Dashboard() {
-  const { user } = useAuth();               // Supabase user (null if logged‑out)
+  const { user } = useAuth();        // Supabase user (null if logged‑out)
 
   // ---------- state ----------
-  const [twins, setTwins]     = useState([]);
-  const [series, setSeries]   = useState({});
-  const [filter, setFilter]   = useState("");
-  const [sortNewest, setSort] = useState(true);
+  const [twins, setTwins]   = useState([]);
+  const [series, setSeries] = useState({});
+  const [filter, setFilter] = useState("");
+  const [sortNewest, setSortNewest] = useState(true);
 
   // ---------- fetch twins + WS ----------
   useEffect(() => {
-    if (!user) return;                      // wait until logged‑in
+    if (!user) return;               // wait until logged‑in
+
     fetchTwins()
       .then((data) => {
         setTwins(data);
 
-        // subscribe each twin to WS telemetry
         data.forEach((twin) =>
           subscribeToTwin(twin.id, (payload) =>
             setSeries((prev) => ({
               ...prev,
               [twin.id]: [
                 ...(prev[twin.id] || []),
-                { value: payload.value ?? payload.temperature, timestamp: Date.now() },
+                {
+                  value: payload.value ?? payload.temperature,
+                  timestamp: Date.now(),
+                },
               ].slice(-50),
             }))
           )
@@ -46,12 +50,15 @@ function Dashboard() {
       .catch(console.error);
 
     connectToEventMesh();
-  }, [user]);                               // rerun when user logs in/out
+  }, [user]);
 
   // ---------- 10‑second polling ----------
   useEffect(() => {
     if (!user) return;
-    const t = setInterval(() => fetchTwins().then(setTwins).catch(console.error), 10_000);
+    const t = setInterval(
+      () => fetchTwins().then(setTwins).catch(console.error),
+      10_000
+    );
     return () => clearInterval(t);
   }, [user]);
 
@@ -71,7 +78,16 @@ function Dashboard() {
         {/* top bar */}
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">🧠 TwinSync Dashboard</h1>
-          <LoginModal />   {/* shows Login / Logout */}
+
+          <div className="flex gap-4">
+            {/* ➕ AddTwin visible only when logged‑in */}
+            {user && (
+              <AddTwinModal
+                onCreated={(twin) => setTwins((prev) => [twin, ...prev])}
+              />
+            )}
+            <LoginModal />
+          </div>
         </div>
 
         {user ? (
@@ -81,13 +97,19 @@ function Dashboard() {
               selected={filter}
               onChange={setFilter}
               sortNew={sortNewest}
-              onToggleSort={() => setSort((s) => !s)}
+              onToggleSort={() => setSortNewest((s) => !s)}
             />
 
-            <TwinTable twins={filteredTwins} series={series} setTwins={setTwins} />
+            <TwinTable
+              twins={filteredTwins}
+              series={series}
+              setTwins={setTwins}
+            />
           </>
         ) : (
-          <p className="text-lg text-gray-600 pt-12">Please log in to view your twins.</p>
+          <p className="text-lg text-gray-600 pt-12">
+            Please log in to view or register twins.
+          </p>
         )}
       </div>
 
