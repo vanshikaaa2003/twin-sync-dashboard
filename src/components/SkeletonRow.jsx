@@ -1,9 +1,12 @@
-export default function SkeletonRow() {
+export default function SkeletonRow({ rows = 3 }) {
   return (
-    <tr className="animate-pulse">
-      {Array(6).fill(0).map((_, i) => (
-        <td key={i} className="p-2 bg-gray-100 dark:bg-gray-700 h-4 rounded"></td>
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          className="animate-pulse bg-gray-200/70 h-10 rounded mb-2"
+        />
       ))}
-    </tr>
+    </>
   );
 }
