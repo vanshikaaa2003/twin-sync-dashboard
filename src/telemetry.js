@@ -1,28 +1,33 @@
 // ────────────────────────────────────────────────────────────────
-// telemetry.js – shared WebSocket helper
+// telemetry.js  – shared WebSocket helper for live telemetry
 // ────────────────────────────────────────────────────────────────
+
+/* 1️⃣  Choose the right WebSocket URL
+      • VITE_MESH_WS in .env.prod  (GH Pages build)
+      • wss://… on https:// sites
+      • ws://localhost:5000 in local dev                          */
 const BASE_WS =
-  import.meta.env.VITE_MESH_WS || "wss://twin-sync-mesh.onrender.com";
+  import.meta.env.VITE_MESH_WS ||
+  (location.protocol === "https:"
+    ? "wss://twin-sync-mesh.onrender.com"
+    : "ws://localhost:5000");
 
-let socket = null;
-const twinCallbacks   = new Map();                // twinId → [fn, fn …]
-const subscribedTopics = new Set();               // keep track
+let socket                = null;           // singleton WS
+const twinCallbacks        = new Map();     // twinId → Set<fn>
+const subscribedTopicsSet  = new Set();     // remember what we asked for
 
-// Default topics we *know* we care about:
+// topics we always want; you can add more here
 const DEFAULT_TOPICS = ["temperature", "humidity"];
 
-/* ---------- open‑or‑reuse WebSocket ------------------------- */
 export function connectToEventMesh() {
-  if (socket) return;                             // already connected
+  if (socket) return;                       // already connected
 
+  console.log("🔌 Opening WS →", BASE_WS);
   socket = new WebSocket(BASE_WS);
 
   socket.addEventListener("open", () => {
-    console.log("🟢 Connected to Event Mesh");
-
-    // Immediately ask for our default topics
-    socket.send(JSON.stringify({ type: "subscribe", topics: DEFAULT_TOPICS }));
-    DEFAULT_TOPICS.forEach((t) => subscribedTopics.add(t));
+    console.log("🟢 WS open");
+    askForTopics(DEFAULT_TOPICS);
   });
 
   socket.addEventListener("message", (evt) => {
@@ -32,36 +37,50 @@ export function connectToEventMesh() {
     } catch {
       return;
     }
+
+    // dev‑only noisy log
+    console.log("📨 mesh msg →", msg);
+
     if (msg.type !== "event") return;
 
     const { from: twinId, topic, payload } = msg;
 
-    /* 1️⃣ auto‑subscribe any *new* topic we notice (future‑proof) */
-    if (!subscribedTopics.has(topic)) {
-      socket.send(JSON.stringify({ type: "subscribe", topics: [topic] }));
-      subscribedTopics.add(topic);
+    // ① auto‑subscribe if we encounter a new topic
+    if (!subscribedTopicsSet.has(topic)) {
+      askForTopics([topic]);
     }
 
-    /* 2️⃣ fan‑out to every callback registered for this twin */
+    // ② fan‑out to every listener for this twin
     (twinCallbacks.get(twinId) || []).forEach((fn) => fn(payload));
   });
 
   socket.addEventListener("close", () => {
-    console.log("🔴 Disconnected from Event Mesh");
-    socket = null;                                // allow reconnect
+    console.log("🔴 WS closed – will reconnect on next call");
+    socket = null;
   });
 }
 
-/* ---------- public helpers ---------------------------------- */
+/* helper – send subscribe frame once per topic */
+function askForTopics(topics) {
+  topics
+    .filter((t) => !subscribedTopicsSet.has(t))
+    .forEach((t) => subscribedTopicsSet.add(t));
+
+  if (socket?.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: "subscribe", topics }));
+  }
+}
+
+/* ── public helpers ──────────────────────────────────────────── */
 export function subscribeToTwin(twinId, fn) {
-  const list = twinCallbacks.get(twinId) || [];
-  twinCallbacks.set(twinId, [...list, fn]);
+  const set = twinCallbacks.get(twinId) || new Set();
+  set.add(fn);
+  twinCallbacks.set(twinId, set);
 }
 
 export function unsubscribeFromTwin(twinId, fn) {
-  const list = twinCallbacks.get(twinId) || [];
-  twinCallbacks.set(
-    twinId,
-    list.filter((cb) => cb !== fn)
-  );
+  const set = twinCallbacks.get(twinId);
+  if (!set) return;
+  set.delete(fn);
+  if (set.size === 0) twinCallbacks.delete(twinId);
 }
