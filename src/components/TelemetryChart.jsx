@@ -1,18 +1,72 @@
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as ReTooltip, CartesianGrid } from "recharts";
+// src/components/TelemetryChart.jsx
+//-----------------------------------
+// Dynamic mini‑chart for a twin.
+// • Accepts `data` = [{ temperature, humidity, at|timestamp, … }, …]
+// • Renders one <Line> per metric (excluding time keys)
+//-----------------------------------
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
-export default function TelemetryChart({ data }) {
-  const last20 = data.slice(-20);
+// Tailwind palette-ish line colours
+const COLORS = [
+  "#ef4444", // red‑500
+  "#3b82f6", // blue‑500
+  "#10b981", // green‑500
+  "#f59e0b", // amber‑500
+  "#8b5cf6", // violet‑500
+  "#ec4899", // pink‑500
+];
+
+export default function TelemetryChart({ data = [] }) {
+  if (data.length === 0) return null;
+
+  // ── 1.  Pick numeric keys to plot (ignore "at", "timestamp", etc.) ──
+  const sample      = data[data.length - 1];
+  const metricKeys  = Object.keys(sample).filter(
+    (k) => !["at", "timestamp"].includes(k)
+  );
+
+  // ── 2.  Map strings → numbers & prettify x‑label ────────────────
+  const clean = data.map((d) => {
+    const row = { ...d };
+    metricKeys.forEach((k) => (row[k] = Number(d[k])));
+    row.time = d.at
+      ? new Date(d.at).toLocaleTimeString()
+      : new Date(d.timestamp || d.time || Date.now()).toLocaleTimeString();
+    return row;
+  });
+
+  // ── 3.  Chart ────────────────────────────────────────────────────
   return (
-    <div className="hover:scale-[1.03] transition">
-      <ResponsiveContainer width="100%" height={120}>
-        <LineChart data={last20} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="timestamp" tickFormatter={(v) => new Date(v).toLocaleTimeString()} hide />
-          <YAxis domain={["dataMin - 1", "dataMax + 1"]} width={30} fontSize={10} />
-          <ReTooltip labelFormatter={(v) => new Date(v).toLocaleTimeString()} />
-          <Line type="monotone" dataKey="value" stroke="#16a34a" dot={false} isAnimationActive={false} strokeWidth={2} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+    <ResponsiveContainer width="100%" height={90}>
+      <LineChart data={clean} margin={{ top: 5, left: 0, right: 5, bottom: 5 }}>
+        <XAxis dataKey="time" hide />
+        <YAxis hide domain={["auto", "auto"]} />
+        <Tooltip
+          labelFormatter={(l) => `Time: ${l}`}
+          formatter={(v) => (typeof v === "number" ? v.toFixed(2) : v)}
+        />
+        <Legend verticalAlign="top" height={14} iconSize={8} />
+
+        {metricKeys.map((k, i) => (
+          <Line
+            key={k}
+            dataKey={k}
+            type="monotone"
+            stroke={COLORS[i % COLORS.length]}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
   );
 }
