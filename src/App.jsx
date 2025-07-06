@@ -6,7 +6,7 @@ import LoginModal from "./components/LoginModal";
 import AddTwinModal from "./components/AddTwinModal";
 import FilterBar from "./components/FilterBar";
 import TwinTable from "./components/TwinTable";
-import SkeletonRow from "./components/SkeletonRow";     // make sure file exists
+import SkeletonRow from "./components/SkeletonRow";
 import ToastProvider from "./ToastProvider";
 
 import { TooltipProvider } from "@radix-ui/react-tooltip";
@@ -20,10 +20,10 @@ import { connectToEventMesh, subscribeToTwin } from "./telemetry";
 function Dashboard() {
   const { user } = useAuth();
 
-  const [twins, setTwins]       = useState([]);
-  const [series, setSeries]     = useState({});
-  const [loading, setLoading]   = useState(true);
-  const [filter, setFilter]     = useState("");
+  const [twins, setTwins] = useState([]);
+  const [series, setSeries] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("");
   const [sortNewest, setSortNewest] = useState(true);
 
   // ---------- fetch twins + telemetry ----------
@@ -37,18 +37,18 @@ function Dashboard() {
         setLoading(false);
 
         data.forEach((twin) =>
-          subscribeToTwin(twin.id, (payload) =>
+          subscribeToTwin(twin.id, (payload) => {
+            const { at, timestamp, time, ...metrics } = payload;
+            const ts = at || timestamp || time || Date.now();
+
             setSeries((prev) => ({
               ...prev,
               [twin.id]: [
                 ...(prev[twin.id] || []),
-                {
-                  value: payload.value ?? payload.temperature,
-                  timestamp: Date.now(),
-                },
+                { ...metrics, at: ts },
               ].slice(-50),
-            }))
-          )
+            }));
+          })
         );
       })
       .catch((err) => {
@@ -100,7 +100,6 @@ function Dashboard() {
 
         {user ? (
           loading ? (
-            /* shimmer while loading */
             <SkeletonRow rows={4} />
           ) : (
             <>
