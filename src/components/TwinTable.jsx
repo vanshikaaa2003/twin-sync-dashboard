@@ -77,13 +77,12 @@ export default function TwinTable({ twins, series, setTwins }) {
                 )}
               </td>
 
-              <td className="px-4 py-3">
-                {series[twin.id] ? (
-                  <TelemetryChart data={series[twin.id]} />
-                ) : (
-                  "—"
-                )}
-              </td>
+              <td className="px-4 py-3 font-mono text-xs whitespace-pre-wrap">
+  {series[twin.id]?.length > 0
+    ? JSON.stringify(series[twin.id].at(-1), null, 2)
+    : "—"}
+</td>
+
 
               {/* Actions */}
               <td className="px-4 py-3 flex gap-3">
