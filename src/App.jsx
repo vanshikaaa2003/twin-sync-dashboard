@@ -2,11 +2,12 @@
 import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthProvider";
 
-import LoginModal from "./components/LoginModal";
+import ThemeToggle from "./components/ThemeToggle";      // 🌙/☀️
+import LoginModal   from "./components/LoginModal";
 import AddTwinModal from "./components/AddTwinModal";
-import FilterBar from "./components/FilterBar";
-import TwinTable from "./components/TwinTable";
-import SkeletonRow from "./components/SkeletonRow";
+import FilterBar    from "./components/FilterBar";
+import TwinTable    from "./components/TwinTable";
+import SkeletonRow  from "./components/SkeletonRow";
 import ToastProvider from "./ToastProvider";
 
 import { TooltipProvider } from "@radix-ui/react-tooltip";
@@ -20,27 +21,26 @@ import { connectToEventMesh, subscribeToTwin } from "./telemetry";
 function Dashboard() {
   const { user } = useAuth();
 
-  const [twins, setTwins] = useState([]);
-  const [series, setSeries] = useState({});
+  const [twins,  setTwins]   = useState([]);
+  const [series, setSeries]  = useState({});
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter]   = useState("");
   const [sortNewest, setSortNewest] = useState(true);
 
-  // ---------- fetch twins + telemetry ----------
+  /*  Fetch twins + live telemetry  */
   useEffect(() => {
     if (!user) return;
 
     setLoading(true);
-
     fetchTwins()
       .then((data) => {
         setTwins(data);
         setLoading(false);
 
+        // subscribe each twin to WS
         data.forEach((twin) =>
           subscribeToTwin(twin.id, (payload) => {
             const ts = payload.at || payload.timestamp || payload.time || Date.now();
-
             setSeries((prev) => ({
               ...prev,
               [twin.id]: [
@@ -59,38 +59,34 @@ function Dashboard() {
     connectToEventMesh();
   }, [user]);
 
-  // ---------- polling ----------
+  /* 10 s polling refresh */
   useEffect(() => {
     if (!user) return;
-
-    const id = setInterval(() => {
-      fetchTwins().then(setTwins).catch(console.error);
-    }, 10_000);
-
+    const id = setInterval(() => fetchTwins().then(setTwins).catch(console.error), 10_000);
     return () => clearInterval(id);
   }, [user]);
 
-  // ---------- filter & sort ----------
+  /*  filter + sort  */
   const filteredTwins = twins
-    .filter((twin) => !filter || twin.capabilities.includes(filter))
+    .filter((t) => !filter || t.capabilities.includes(filter))
     .sort((a, b) =>
       sortNewest
         ? new Date(b.registeredAt) - new Date(a.registeredAt)
         : new Date(a.registeredAt) - new Date(b.registeredAt)
     );
 
-  // ---------- UI ----------
+  /*  UI  */
   return (
     <TooltipProvider>
       <div className="p-6 space-y-6 max-w-6xl mx-auto">
-        {/* Header */}
+        {/* ─── Header ─── */}
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">🧠 TwinSync Dashboard</h1>
-          <div className="flex gap-4">
+          <h1 className="text-3xl font-bold">🧠 TwinSync Dashboard</h1>
+
+          <div className="flex items-center gap-4">
+            <ThemeToggle />                          {/* NEW */}
             {user && (
-              <AddTwinModal
-                onCreated={(twin) => setTwins((prev) => [twin, ...prev])}
-              />
+              <AddTwinModal onCreated={(t) => setTwins((p) => [t, ...p])} />
             )}
             <LoginModal />
           </div>
@@ -102,22 +98,18 @@ function Dashboard() {
           ) : (
             <>
               <FilterBar
-                capabilities={twins.flatMap((twin) => twin.capabilities)}
+                capabilities={twins.flatMap((t) => t.capabilities)}
                 selected={filter}
                 onChange={setFilter}
                 sortNew={sortNewest}
                 onToggleSort={() => setSortNewest((s) => !s)}
               />
 
-              <TwinTable
-                twins={filteredTwins}
-                series={series}
-                setTwins={setTwins}
-              />
+              <TwinTable twins={filteredTwins} series={series} setTwins={setTwins} />
             </>
           )
         ) : (
-          <p className="text-lg text-gray-600 pt-12">
+          <p className="text-lg text-gray-600 dark:text-gray-400 pt-12">
             Please log in to view or register twins.
           </p>
         )}
