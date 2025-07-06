@@ -5,7 +5,7 @@ import TelemetryChart from "./TelemetryChart";
 import { deleteTwin, updateTwin } from "../api/twins";
 import { notifySuccess, notifyError } from "../ToastProvider";
 
-const OFFLINE_MS = 60_000;                      // 60 seconds
+const OFFLINE_MS = 60_000; // 60 seconds
 
 export default function TwinTable({ twins, series, setTwins }) {
   const fmt = (v) => (v ? new Date(v).toLocaleString() : "—");
@@ -25,9 +25,9 @@ export default function TwinTable({ twins, series, setTwins }) {
               "Spec URL",
               "Capabilities",
               "Registered",
-              "Status",          // 👈 NEW
+              "Status",
               "Telemetry",
-              "Actions"
+              "Actions",
             ].map((h) => (
               <th
                 key={h}
@@ -45,8 +45,10 @@ export default function TwinTable({ twins, series, setTwins }) {
               key={twin.id}
               className={`${idx % 2 ? "bg-gray-50" : "bg-white"} hover:bg-gray-100 transition`}
             >
+              {/* ID */}
               <td className="px-4 py-3 font-mono text-xs">{twin.id.slice(0, 8)}…</td>
 
+              {/* Spec URL */}
               <td className="px-4 py-3 break-all">
                 <a
                   href={twin.specURL}
@@ -58,13 +60,15 @@ export default function TwinTable({ twins, series, setTwins }) {
                 </a>
               </td>
 
+              {/* Capabilities */}
               <td className="px-4 py-3">
                 {(twin.capabilities || []).join(", ") || "—"}
               </td>
 
+              {/* Registered */}
               <td className="px-4 py-3">{fmt(twin.registeredAt)}</td>
 
-              {/* 🟢 / 🔴 badge */}
+              {/* Online / Offline badge */}
               <td className="px-4 py-3">
                 {isOffline(twin) ? (
                   <span className="inline-flex items-center gap-1 text-red-600">
@@ -77,12 +81,10 @@ export default function TwinTable({ twins, series, setTwins }) {
                 )}
               </td>
 
-              <td className="px-4 py-3 font-mono text-xs whitespace-pre-wrap">
-  {series[twin.id]?.length > 0
-    ? JSON.stringify(series[twin.id].at(-1), null, 2)
-    : "—"}
-</td>
-
+              {/* Telemetry spark‑line */}
+              <td className="px-4 py-3 w-44"> {/* fixed width ≈ 11 rem */}
+                <TelemetryChart data={series[twin.id] ?? []} />
+              </td>
 
               {/* Actions */}
               <td className="px-4 py-3 flex gap-3">
