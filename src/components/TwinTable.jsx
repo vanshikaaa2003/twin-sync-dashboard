@@ -1,20 +1,38 @@
+// src/components/TwinTable.jsx
 import { Trash2, Pencil } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import TelemetryChart from "./TelemetryChart";
 import { deleteTwin, updateTwin } from "../api/twins";
 import { notifySuccess, notifyError } from "../ToastProvider";
 
+const OFFLINE_MS = 60_000;                      // 60 seconds
+
 export default function TwinTable({ twins, series, setTwins }) {
-  const fmt = (v) =>
-    v ? new Date(v).toLocaleString() : "—";
+  const fmt = (v) => (v ? new Date(v).toLocaleString() : "—");
+
+  /* helper: true → offline, false → online */
+  const isOffline = (twin) =>
+    !twin.lastTelemetryAt ||
+    Date.now() - new Date(twin.lastTelemetryAt).getTime() > OFFLINE_MS;
 
   return (
     <div className="bg-white shadow rounded-lg ring-1 ring-gray-200 overflow-x-auto">
       <table className="min-w-full text-sm border-collapse">
         <thead className="bg-gray-50">
           <tr>
-            {["ID", "Spec URL", "Capabilities", "Registered", "Telemetry", "Actions"].map((h) => (
-              <th key={h} className="px-4 py-3 text-left font-semibold text-gray-600 uppercase tracking-wider">
+            {[
+              "ID",
+              "Spec URL",
+              "Capabilities",
+              "Registered",
+              "Status",          // 👈 NEW
+              "Telemetry",
+              "Actions"
+            ].map((h) => (
+              <th
+                key={h}
+                className="px-4 py-3 text-left font-semibold text-gray-600 uppercase tracking-wider"
+              >
                 {h}
               </th>
             ))}
@@ -28,15 +46,46 @@ export default function TwinTable({ twins, series, setTwins }) {
               className={`${idx % 2 ? "bg-gray-50" : "bg-white"} hover:bg-gray-100 transition`}
             >
               <td className="px-4 py-3 font-mono text-xs">{twin.id.slice(0, 8)}…</td>
+
               <td className="px-4 py-3 break-all">
-                <a href={twin.specURL} target="_blank" className="text-blue-600 hover:underline">
+                <a
+                  href={twin.specURL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
                   {twin.specURL}
                 </a>
               </td>
-              <td className="px-4 py-3">{(twin.capabilities || []).join(", ") || "—"}</td>
-              <td className="px-4 py-3">{fmt(twin.registeredAt)}</td>
-              <td className="px-4 py-3">{series[twin.id] ? <TelemetryChart data={series[twin.id]} /> : "—"}</td>
 
+              <td className="px-4 py-3">
+                {(twin.capabilities || []).join(", ") || "—"}
+              </td>
+
+              <td className="px-4 py-3">{fmt(twin.registeredAt)}</td>
+
+              {/* 🟢 / 🔴 badge */}
+              <td className="px-4 py-3">
+                {isOffline(twin) ? (
+                  <span className="inline-flex items-center gap-1 text-red-600">
+                    ● <span className="text-xs">offline</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-green-600">
+                    ● <span className="text-xs">online</span>
+                  </span>
+                )}
+              </td>
+
+              <td className="px-4 py-3">
+                {series[twin.id] ? (
+                  <TelemetryChart data={series[twin.id]} />
+                ) : (
+                  "—"
+                )}
+              </td>
+
+              {/* Actions */}
               <td className="px-4 py-3 flex gap-3">
                 {/* Delete */}
                 <Tooltip.Root>
