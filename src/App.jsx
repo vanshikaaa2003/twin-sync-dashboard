@@ -78,7 +78,9 @@ function Dashboard() {
   /*  UI  */
   return (
     <TooltipProvider>
-      <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      <div className="p-6 space-y-6 max-w-6xl mx-auto
+                  bg-white text-black dark:bg-gray-900 dark:text-gray-100
+                  min-h-screen transition-colors">
         {/* ─── Header ─── */}
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">🧠 TwinSync Dashboard</h1>
