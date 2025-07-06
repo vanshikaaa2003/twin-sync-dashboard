@@ -31,6 +31,7 @@ function Dashboard() {
     if (!user) return;
 
     setLoading(true);
+
     fetchTwins()
       .then((data) => {
         setTwins(data);
@@ -38,21 +39,20 @@ function Dashboard() {
 
         data.forEach((twin) =>
           subscribeToTwin(twin.id, (payload) => {
-            const { at, timestamp, time, ...metrics } = payload;
-            const ts = at || timestamp || time || Date.now();
+            const ts = payload.at || payload.timestamp || payload.time || Date.now();
 
             setSeries((prev) => ({
               ...prev,
               [twin.id]: [
                 ...(prev[twin.id] || []),
-                { ...metrics, at: ts },
+                { ...payload, at: ts },
               ].slice(-50),
             }));
           })
         );
       })
       .catch((err) => {
-        console.error(err);
+        console.error("Error fetching twins:", err);
         setLoading(false);
       });
 
@@ -62,19 +62,17 @@ function Dashboard() {
   // ---------- polling ----------
   useEffect(() => {
     if (!user) return;
-    const id = setInterval(
-      () =>
-        fetchTwins()
-          .then(setTwins)
-          .catch(console.error),
-      10_000
-    );
+
+    const id = setInterval(() => {
+      fetchTwins().then(setTwins).catch(console.error);
+    }, 10_000);
+
     return () => clearInterval(id);
   }, [user]);
 
   // ---------- filter & sort ----------
   const filteredTwins = twins
-    .filter((t) => !filter || t.capabilities.includes(filter))
+    .filter((twin) => !filter || twin.capabilities.includes(filter))
     .sort((a, b) =>
       sortNewest
         ? new Date(b.registeredAt) - new Date(a.registeredAt)
@@ -91,7 +89,7 @@ function Dashboard() {
           <div className="flex gap-4">
             {user && (
               <AddTwinModal
-                onCreated={(twin) => setTwins((p) => [twin, ...p])}
+                onCreated={(twin) => setTwins((prev) => [twin, ...prev])}
               />
             )}
             <LoginModal />
@@ -104,7 +102,7 @@ function Dashboard() {
           ) : (
             <>
               <FilterBar
-                capabilities={twins.flatMap((t) => t.capabilities)}
+                capabilities={twins.flatMap((twin) => twin.capabilities)}
                 selected={filter}
                 onChange={setFilter}
                 sortNew={sortNewest}
